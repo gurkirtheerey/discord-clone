@@ -1,8 +1,8 @@
 import React from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useUserStore } from '../store/userStore';
 
 const Dashboard: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout } = useUserStore();
 
   return (
     <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
@@ -57,7 +57,7 @@ const Dashboard: React.FC = () => {
           <h2>User Information</h2>
           <ul style={{ listStyle: 'none', padding: 0 }}>
             <li style={{ marginBottom: '10px' }}>
-              <strong>ID:</strong> {user?.id}
+              <strong>ID:</strong> {user?.user_id}
             </li>
             <li style={{ marginBottom: '10px' }}>
               <strong>Email:</strong> {user?.email}
@@ -66,7 +66,7 @@ const Dashboard: React.FC = () => {
               <strong>Username:</strong> {user?.username}
             </li>
             <li style={{ marginBottom: '10px' }}>
-              <strong>Status:</strong> {user?.status}
+              <strong>Provider:</strong> {user?.provider || 'google'}
             </li>
           </ul>
         </div>

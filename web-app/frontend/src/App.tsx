@@ -23,6 +23,11 @@ const LoginPage = () => {
   const userQuery = useUser();
   const backendStatusQuery = useBackendStatus();
   
+  // Redirect to dashboard if authenticated
+  if (isAuthenticated && !isLoading) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  
   console.log('LoginPage: Auth state', { 
     hasToken: !!token, 
     isAuthenticated, 
@@ -38,7 +43,7 @@ const LoginPage = () => {
       <p>Sign in to continue</p>
 
       <div className="card">
-        <GoogleLoginButton />
+        {!isAuthenticated && <GoogleLoginButton />}
         
         <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '1px solid #eee' }}>
           <h3>Backend Status Check</h3>

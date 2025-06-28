@@ -2,6 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useUserStore } from '../store/userStore';
 import type { User } from '../store/userStore';
+import api from '../lib/api';
 
 interface ApiResponse {
   message: string;
@@ -9,19 +10,9 @@ interface ApiResponse {
   user?: User;
 }
 
-const fetchUserData = async (token: string): Promise<ApiResponse> => {
-  const response = await fetch('http://localhost:8080/api/hello', {
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-
-  return response.json();
+const fetchUserData = async (): Promise<ApiResponse> => {
+  const response = await api.get('/api/hello');
+  return response.data;
 };
 
 export const useUser = () => {
@@ -29,7 +20,7 @@ export const useUser = () => {
 
   const query = useQuery({
     queryKey: ['user', token],
-    queryFn: () => fetchUserData(token!),
+    queryFn: fetchUserData,
     enabled: !!token && !storeLoading, // Wait for store to finish loading
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchOnWindowFocus: false,
@@ -51,22 +42,23 @@ export const useUser = () => {
   return query;
 };
 
+const fetchBackendStatus = async (): Promise<ApiResponse> => {
+  // Create a separate axios call without auth token for backend status
+  const response = await api.get('/api/hello', {
+    headers: {
+      'Authorization': '', // Override auth interceptor
+    },
+  });
+  return response.data;
+};
+
 export const useBackendStatus = () => {
+  const { token } = useUserStore();
+  
   return useQuery({
     queryKey: ['backend-status'],
-    queryFn: async (): Promise<ApiResponse> => {
-      const response = await fetch('http://localhost:8080/api/hello', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return response.json();
-    },
+    queryFn: fetchBackendStatus,
+    enabled: !token, // Only run when user is NOT authenticated
     staleTime: 1000 * 30, // 30 seconds
     refetchInterval: 1000 * 60, // Refetch every minute
   });
