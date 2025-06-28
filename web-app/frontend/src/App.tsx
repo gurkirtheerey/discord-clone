@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { QueryProvider } from './providers/QueryProvider';
+import { useUserStore } from './store/userStore';
+import { useUser, useBackendStatus } from './hooks/useUser';
 import GoogleLoginButton from './components/GoogleLoginButton';
 import AuthCallback from './components/AuthCallback';
 import Dashboard from './components/Dashboard';
@@ -17,50 +19,18 @@ interface ApiResponse {
 }
 
 const LoginPage = () => {
-  const [data, setData] = useState<ApiResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const { token, isAuthenticated, isLoading } = useAuth();
+  const { user, token, isAuthenticated, isLoading } = useUserStore();
+  const userQuery = useUser();
+  const backendStatusQuery = useBackendStatus();
   
-  console.log('LoginPage: Auth state', { hasToken: !!token, isAuthenticated, isLoading });
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-        console.log('Sending token:', token.substring(0, 20) + '...');
-      } else {
-        console.log('No token available');
-      }
-      
-      const response = await fetch("http://localhost:8080/api/hello", {
-        headers
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const result: ApiResponse = await response.json();
-      console.log('Response:', result);
-      setData(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      fetchData();
-    }
-  }, [isLoading, fetchData]);
+  console.log('LoginPage: Auth state', { 
+    hasToken: !!token, 
+    isAuthenticated, 
+    isLoading, 
+    user,
+    userQueryLoading: userQuery.isLoading,
+    userQueryData: userQuery.data 
+  });
 
   return (
     <div className="App">
@@ -68,40 +38,55 @@ const LoginPage = () => {
       <p>Sign in to continue</p>
 
       <div className="card">
-        {authError && (
-          <div style={{ color: "red", marginBottom: "1rem" }}>
-            Auth Error: {authError}
-          </div>
-        )}
-        
-        <GoogleLoginButton onError={setAuthError} />
+        <GoogleLoginButton />
         
         <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '1px solid #eee' }}>
           <h3>Backend Status Check</h3>
-          {loading && <p>Loading...</p>}
-
-          {error && (
+          
+          {backendStatusQuery.isLoading && <p>Loading backend status...</p>}
+          {backendStatusQuery.error && (
             <div style={{ color: "red", marginBottom: "1rem" }}>
-              Error: {error}
+              Backend Error: {backendStatusQuery.error.message}
+            </div>
+          )}
+          {backendStatusQuery.data && (
+            <div style={{ marginBottom: "1rem" }}>
+              <p>✅ Backend connected: {backendStatusQuery.data.message}</p>
+              <p>Status: {backendStatusQuery.data.status}</p>
             </div>
           )}
 
-          {data && (
-            <div style={{ marginBottom: "1rem" }}>
-              <p>✅ Backend connected: {data.message}</p>
-              <p>Status: {data.status}</p>
-              {data.user && (
+          <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #eee' }}>
+            <h3>Authentication Debug</h3>
+            <p>Store Loading: {isLoading ? 'Yes' : 'No'}</p>
+            <p>Has Token: {token ? 'Yes' : 'No'}</p>
+            <p>Is Authenticated: {isAuthenticated ? 'Yes' : 'No'}</p>
+            <p>User Query Enabled: {(!!token && !isLoading) ? 'Yes' : 'No'}</p>
+            <p>User Query Loading: {userQuery.isLoading ? 'Yes' : 'No'}</p>
+            <p>User Query Error: {userQuery.error ? userQuery.error.message : 'None'}</p>
+          </div>
+
+          {isAuthenticated && (
+            <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #eee' }}>
+              <h3>User Information</h3>
+              {userQuery.isLoading && <p>Loading user data...</p>}
+              {userQuery.error && (
+                <div style={{ color: "red", marginBottom: "1rem" }}>
+                  User Error: {userQuery.error.message}
+                </div>
+              )}
+              {user && (
                 <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#e8f5e8', borderRadius: '4px' }}>
                   <strong>Authenticated User:</strong>
-                  <p>Username: {data.user.username}</p>
-                  <p>Email: {data.user.email}</p>
-                  <p>User ID: {data.user.user_id}</p>
+                  <p>Username: {user.username}</p>
+                  <p>Email: {user.email}</p>
+                  <p>User ID: {user.user_id}</p>
                 </div>
               )}
             </div>
           )}
 
-          <button onClick={fetchData}>Test Backend Connection</button>
+          <button onClick={() => backendStatusQuery.refetch()}>Test Backend Connection</button>
         </div>
       </div>
 
@@ -113,7 +98,7 @@ const LoginPage = () => {
 };
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading } = useUserStore();
   
   console.log('ProtectedRoute: Auth state', { isAuthenticated, isLoading });
   
@@ -134,9 +119,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const AppContent = () => {
-  const { isLoading, isAuthenticated } = useAuth();
+  const { isLoading, initialize } = useUserStore();
   
-  console.log('AppContent: Auth state', { isLoading, isAuthenticated });
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
   
   if (isLoading) {
     return (
@@ -170,11 +157,11 @@ const AppContent = () => {
 
 function App() {
   return (
-    <AuthProvider>
+    <QueryProvider>
       <Router>
         <AppContent />
       </Router>
-    </AuthProvider>
+    </QueryProvider>
   );
 }
 

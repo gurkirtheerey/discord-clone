@@ -25,7 +25,7 @@
 
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useUserStore } from '../store/userStore';
 
 /**
  * AuthCallback Component
@@ -35,7 +35,7 @@ import { useAuth } from '../contexts/AuthContext';
  */
 const AuthCallback = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { setToken, setUser } = useUserStore();
 
   /**
    * Effect: Process OAuth callback on component mount
@@ -70,16 +70,19 @@ const AuthCallback = () => {
         
         // Create user object matching our User interface
         const user = {
-          id: payload.user_id,
+          user_id: payload.user_id,
           email: payload.email,
           username: payload.username,
-          status: 'online' as const  // Set user as online after login
+          avatar_url: payload.avatar_url,
+          google_id: payload.google_id,
+          provider: payload.provider
         };
         
-        // Update AuthContext with login information
+        // Update Zustand store with login information
         // This will trigger re-renders across the app and establish session
-        console.log('AuthCallback: Updating auth context');
-        login(token, user);
+        console.log('AuthCallback: Updating user store');
+        setToken(token);
+        setUser(user);
         
         // Redirect to dashboard (protected route)
         console.log('AuthCallback: Redirecting to dashboard');
@@ -94,7 +97,7 @@ const AuthCallback = () => {
       console.log('AuthCallback: No token found, redirecting to login');
       navigate('/');
     }
-  }, [navigate, login]); // Dependencies: navigate and login functions
+  }, [navigate, setToken, setUser]); // Dependencies: navigate and store setters
 
   // Loading UI while processing authentication
   return (
