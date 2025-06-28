@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude config set --global preferredNotifChannel terminal_bell)",
+      "Bash(mkdir:*)",
+      "Bash(npm create:*)",
+      "Bash(npm install)",
+      "Bash(ls:*)",
+      "Bash(go mod init:*)"
+    ],
+    "deny": []
+  }
+}
